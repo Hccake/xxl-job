@@ -10,6 +10,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Testcontainers
@@ -29,7 +32,21 @@ class PostgresqlMapperIntegrationTest {
         registry.add("spring.datasource.password", POSTGRES::getPassword);
         registry.add("spring.datasource.driver-class-name", POSTGRES::getDriverClassName);
         registry.add("spring.sql.init.mode", () -> "always");
-        registry.add("spring.sql.init.schema-locations", () -> "file:doc/db/tables_xxl_job_postgresql.sql");
+        registry.add("spring.sql.init.schema-locations", PostgresqlMapperIntegrationTest::postgresqlSchemaLocation);
+    }
+
+    private static String postgresqlSchemaLocation() {
+        Path moduleRelative = Path.of("..", "doc", "db", "tables_xxl_job_postgresql.sql")
+                .toAbsolutePath()
+                .normalize();
+        if (Files.exists(moduleRelative)) {
+            return moduleRelative.toUri().toString();
+        }
+        return Path.of("doc", "db", "tables_xxl_job_postgresql.sql")
+                .toAbsolutePath()
+                .normalize()
+                .toUri()
+                .toString();
     }
 
     @Autowired

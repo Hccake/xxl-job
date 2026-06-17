@@ -28,6 +28,11 @@ import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -193,32 +198,22 @@ abstract class AbstractMapperIntegrationTest {
     }
 
     protected void assertLogCleanupAndAlarmQueries() {
-        XxlJobLog successful = new XxlJobLog();
-        successful.setJobGroup(1);
-        successful.setJobId(1);
-        successful.setTriggerTime(DateTool.addDays(new Date(), -2));
-        successful.setTriggerCode(200);
-        successful.setHandleCode(200);
-        successful.setAlarmStatus(0);
-        assertEquals(1, xxlJobLogMapper.save(successful));
-
-        XxlJobLog failed = new XxlJobLog();
-        failed.setJobGroup(1);
-        failed.setJobId(1);
-        failed.setTriggerTime(DateTool.addDays(new Date(), -1));
-        failed.setTriggerCode(500);
-        failed.setHandleCode(0);
-        failed.setAlarmStatus(0);
-        assertEquals(1, xxlJobLogMapper.save(failed));
+        saveLog(DateTool.addDays(new Date(), -2), 200, 200);
+        long failedId = saveLog(DateTool.addDays(new Date(), -1), 500, 0);
 
         List<Long> clearIds = xxlJobLogMapper.findClearLogIds(1, 1, new Date(), 1, 10);
         assertFalse(clearIds.isEmpty());
-        assertTrue(xxlJobLogMapper.findFailJobLogIds(10).contains(failed.getId()));
+        assertTrue(xxlJobLogMapper.findFailJobLogIds(10).contains(failedId));
 
-        Map<String, Object> report = xxlJobLogMapper.findLogReport(DateTool.addDays(new Date(), -10), new Date());
-        assertNotNull(report.get("triggerDayCount"));
-        assertNotNull(report.get("triggerDayCountRunning"));
-        assertNotNull(report.get("triggerDayCountSuc"));
+        Date reportFrom = DateTool.parseDateTime("2035-06-18 00:00:00");
+        saveLog(DateTool.addSeconds(reportFrom, 1), 200, 0);
+        saveLog(DateTool.addSeconds(reportFrom, 2), 200, 200);
+        saveLog(DateTool.addSeconds(reportFrom, 3), 500, 0);
+
+        Map<String, Object> report = xxlJobLogMapper.findLogReport(reportFrom, DateTool.addSeconds(reportFrom, 10));
+        assertEquals(3, intValue(report.get("triggerDayCount")));
+        assertEquals(1, intValue(report.get("triggerDayCountRunning")));
+        assertEquals(1, intValue(report.get("triggerDayCountSuc")));
     }
 
     protected void assertLogGlueCleanup() {
@@ -239,12 +234,61 @@ abstract class AbstractMapperIntegrationTest {
         assertEquals(1, xxlJobLogGlueMapper.findByJobId(jobId).size());
     }
 
-    protected void assertScheduleLockInTransaction() {
+    protected void assertScheduleLockInTransaction() throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CountDownLatch competingTransactionStarted = new CountDownLatch(1);
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        boolean committed = false;
         try {
             assertEquals("schedule_lock", xxlJobLockMapper.scheduleLock());
-        } finally {
+            Future<String> competingLock = executor.submit(() -> {
+                TransactionStatus competingStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
+                boolean competingCommitted = false;
+                try {
+                    competingTransactionStarted.countDown();
+                    String lockedRecord = xxlJobLockMapper.scheduleLock();
+                    transactionManager.commit(competingStatus);
+                    competingCommitted = true;
+                    return lockedRecord;
+                } finally {
+                    if (!competingCommitted && !competingStatus.isCompleted()) {
+                        transactionManager.rollback(competingStatus);
+                    }
+                }
+            });
+
+            assertTrue(competingTransactionStarted.await(2, TimeUnit.SECONDS));
+            TimeUnit.MILLISECONDS.sleep(300);
+            assertFalse(competingLock.isDone(),
+                    "Competing schedule lock query completed before the first transaction released the row lock");
+
             transactionManager.commit(status);
+            committed = true;
+            assertEquals("schedule_lock", competingLock.get(5, TimeUnit.SECONDS));
+        } finally {
+            if (!committed && !status.isCompleted()) {
+                transactionManager.rollback(status);
+            }
+            executor.shutdown();
+            if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
         }
+    }
+
+    private int intValue(Object value) {
+        assertNotNull(value);
+        return Integer.parseInt(String.valueOf(value));
+    }
+
+    private long saveLog(Date triggerTime, int triggerCode, int handleCode) {
+        XxlJobLog log = new XxlJobLog();
+        log.setJobGroup(1);
+        log.setJobId(1);
+        log.setTriggerTime(triggerTime);
+        log.setTriggerCode(triggerCode);
+        log.setHandleCode(handleCode);
+        assertEquals(1, xxlJobLogMapper.save(log));
+        return log.getId();
     }
 }

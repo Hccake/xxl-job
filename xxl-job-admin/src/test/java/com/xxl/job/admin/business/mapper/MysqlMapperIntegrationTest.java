@@ -32,7 +32,7 @@ class MysqlMapperIntegrationTest extends AbstractMapperIntegrationTest {
     }
 
     @Test
-    void preservesMysqlMapperBehavior() {
+    void preservesMysqlMapperBehavior() throws Exception {
         assertDatabaseId("mysql");
         assertRegistryUpsertAndDeadlineQueries();
         assertLogReportUpsert();

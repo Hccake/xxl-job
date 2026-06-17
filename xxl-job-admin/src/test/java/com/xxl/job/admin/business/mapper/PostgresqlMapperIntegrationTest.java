@@ -32,7 +32,7 @@ class PostgresqlMapperIntegrationTest extends AbstractMapperIntegrationTest {
     }
 
     @Test
-    void supportsPostgresqlMapperBehavior() {
+    void supportsPostgresqlMapperBehavior() throws Exception {
         assertDatabaseId("postgresql");
         assertRegistryUpsertAndDeadlineQueries();
         assertLogReportUpsert();

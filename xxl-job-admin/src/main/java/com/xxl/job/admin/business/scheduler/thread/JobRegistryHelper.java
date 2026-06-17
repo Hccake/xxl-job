@@ -68,15 +68,17 @@ public class JobRegistryHelper {
 				List<XxlJobGroup> groupList = XxlJobAdminBootstrap.getInstance().getXxlJobGroupMapper().findByAddressType(0);
 				if (groupList!=null && !groupList.isEmpty()) {
 
+					Date deadlineTime = new Date(System.currentTimeMillis() - Const.DEAD_TIMEOUT * 1000L);
+
 					// remove dead address (admin/executor)
-					List<Integer> ids = XxlJobAdminBootstrap.getInstance().getXxlJobRegistryMapper().findDead(Const.DEAD_TIMEOUT, new Date());
+					List<Integer> ids = XxlJobAdminBootstrap.getInstance().getXxlJobRegistryMapper().findDead(deadlineTime);
 					if (ids!=null && !ids.isEmpty()) {
 						XxlJobAdminBootstrap.getInstance().getXxlJobRegistryMapper().removeDead(ids);
 					}
 
 					// fresh online address (admin/executor)
 					HashMap<String, List<String>> appAddressMap = new HashMap<String, List<String>>();
-					List<XxlJobRegistry> list = XxlJobAdminBootstrap.getInstance().getXxlJobRegistryMapper().findAll(Const.DEAD_TIMEOUT, new Date());
+					List<XxlJobRegistry> list = XxlJobAdminBootstrap.getInstance().getXxlJobRegistryMapper().findAll(deadlineTime);
 					if (list != null) {
 						for (XxlJobRegistry item: list) {
 							if (RegistTypeEnum.EXECUTOR.name().equals(item.getRegistryGroup())) {
@@ -150,10 +152,9 @@ public class JobRegistryHelper {
 		registryOrRemoveThreadPool.execute(new Runnable() {
 			@Override
 			public void run() {
-				// 0-fail; 1-save suc; 2-update suc;
 				int ret = XxlJobAdminBootstrap.getInstance().getXxlJobRegistryMapper().registrySaveOrUpdate(registryParam.getRegistryGroup(), registryParam.getRegistryKey(), registryParam.getRegistryValue(), new Date());
-				if (ret == 1) {
-					// fresh (add)
+				if (ret > 0) {
+					// affected-row counts differ between MySQL upsert and PostgreSQL upsert
 					freshGroupRegistryInfo(registryParam);
 				}
 				/*int ret = XxlJobAdminConfig.getAdminConfig().getXxlJobRegistryDao().registryUpdate(registryParam.getRegistryGroup(), registryParam.getRegistryKey(), registryParam.getRegistryValue(), new Date());

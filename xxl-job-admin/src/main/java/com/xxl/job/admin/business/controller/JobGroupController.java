@@ -182,7 +182,8 @@ public class JobGroupController {
 
 	private List<String> findRegistryByAppName(String appnameParam){
 		HashMap<String, List<String>> appAddressMap = new HashMap<>();
-		List<XxlJobRegistry> list = xxlJobRegistryMapper.findAll(Const.DEAD_TIMEOUT, new Date());
+		Date deadlineTime = new Date(System.currentTimeMillis() - Const.DEAD_TIMEOUT * 1000L);
+		List<XxlJobRegistry> list = xxlJobRegistryMapper.findAll(deadlineTime);
 		if (CollectionTool.isNotEmpty(list)) {
 			for (XxlJobRegistry item: list) {
 				if (!RegistTypeEnum.EXECUTOR.name().equals(item.getRegistryGroup())) {

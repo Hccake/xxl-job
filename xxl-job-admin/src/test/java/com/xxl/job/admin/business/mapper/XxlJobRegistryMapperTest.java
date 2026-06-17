@@ -25,7 +25,7 @@ public class XxlJobRegistryMapperTest {
             ret = xxlJobRegistryDao.registrySave("g1", "k1", "v1", new Date());
         }*/
 
-        List<XxlJobRegistry> list = xxlJobRegistryMapper.findAll(1, new Date());
+        List<XxlJobRegistry> list = xxlJobRegistryMapper.findAll(new Date(System.currentTimeMillis() - 1000L));
 
         int ret2 = xxlJobRegistryMapper.removeDead(Arrays.asList(1));
     }

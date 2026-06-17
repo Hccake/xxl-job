@@ -8,7 +8,7 @@ MAINTAINER xuxueli
 ENV PARAMS=""
 
 # set timezone
-ENV TZ=PRC
+ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # copy jar

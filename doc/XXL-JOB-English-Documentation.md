@@ -818,7 +818,7 @@ Source repository address | Release Download
 
 ### 1.5 Environment
 - JDK：1.8+
-- Mysql：5.7+
+- Mysql：5.7+ (default); PostgreSQL: 12+ (optional)
 - Maven：3+
 
 
@@ -831,9 +831,13 @@ The relative path of db scripts is as follows:
 
     /xxl-job/doc/db/tables_xxl_job.sql
 
-The xxl-job-admin can be deployed as a cluster,all nodes of the cluster must connect to the same mysql instance.
+For PostgreSQL, import the following initialization script:
 
-If mysql instances is deployed in master-slave mode,all nodes of the cluster must connect to master instace.
+    /xxl-job/doc/db/tables_xxl_job_postgresql.sql
+
+The xxl-job-admin defaults to MySQL and can also connect to PostgreSQL through runtime datasource configuration. In cluster mode, all admin nodes must connect to the same database instance.
+
+If the database is deployed in primary-replica mode, all admin nodes must connect to the primary instance.
 
 ### 2.2 Compile
 Source code is organized by maven,unzip it and structure is as follows:
@@ -865,6 +869,12 @@ spring.datasource.username=root
 spring.datasource.password=root_pwd
 spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 
+# PostgreSQL example; import doc/db/tables_xxl_job_postgresql.sql before startup
+spring.datasource.url=jdbc:postgresql://127.0.0.1:5432/xxl_job
+spring.datasource.username=xxl_job
+spring.datasource.password=xxl_job_pwd
+spring.datasource.driver-class-name=org.postgresql.Driver
+
 ### Alarm mailbox
 spring.mail.host=smtp.qq.com
 spring.mail.port=25
@@ -886,6 +896,12 @@ xxl.job.accessToken=
 ### Internationalized Settings, the default is Chinese version，Switch to English when the value is "en".
 xxl.job.i18n=zh_CN
 
+```
+
+Docker images can override datasource configuration through `PARAMS`. For PostgreSQL, import `doc/db/tables_xxl_job_postgresql.sql` before startup and use:
+
+```bash
+-e PARAMS="--spring.datasource.url=jdbc:postgresql://127.0.0.1:5432/xxl_job --spring.datasource.username=xxl_job --spring.datasource.password=xxl_job_pwd --spring.datasource.driver-class-name=org.postgresql.Driver"
 ```
 
 #### Step 2:Deploy:
@@ -1259,7 +1275,7 @@ Under Quartz develop,task logic often was maintained by QuartzJobBean, couple is
 This call module is like RPC,RemoteHttpJobBean provide call proxy functionality,the executor is provided as remote service.
 
 #### 5.4.3 Schedule Center HA（Cluster）
-It is based on Quartz cluster，databse use Mysql；while QUARTZ task schedule is used in Clustered Distributed Concurrent Environment,all nodes will report task info and store into database.it will fetch trigger from database while execute task,if trigger name and execute time is the same only one node will execute the task.
+It is based on Quartz cluster，the database defaults to MySQL and can also use PostgreSQL；while QUARTZ task schedule is used in Clustered Distributed Concurrent Environment,all nodes will report task info and store into database.it will fetch trigger from database while execute task,if trigger name and execute time is the same only one node will execute the task.
 
 ```
 # for cluster

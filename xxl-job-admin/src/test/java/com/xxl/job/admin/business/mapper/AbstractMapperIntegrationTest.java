@@ -5,6 +5,7 @@ import com.xxl.job.admin.business.model.XxlJobInfo;
 import com.xxl.job.admin.business.model.XxlJobLog;
 import com.xxl.job.admin.business.model.XxlJobLogGlue;
 import com.xxl.job.admin.business.model.XxlJobLogReport;
+import com.xxl.job.admin.business.model.XxlJobRegistry;
 import com.xxl.job.admin.business.scheduler.config.XxlJobAdminBootstrap;
 import com.xxl.job.admin.framework.mapper.XxlJobUserMapper;
 import com.xxl.job.admin.framework.model.XxlJobUser;
@@ -16,6 +17,8 @@ import org.springframework.boot.jdbc.autoconfigure.ApplicationDataSourceScriptDa
 import org.springframework.boot.sql.autoconfigure.init.SqlInitializationProperties;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -27,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -37,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 abstract class AbstractMapperIntegrationTest {
@@ -91,6 +96,9 @@ abstract class AbstractMapperIntegrationTest {
     @Resource
     protected PlatformTransactionManager transactionManager;
 
+    @Resource
+    protected JdbcTemplate jdbcTemplate;
+
     protected static String schemaLocation(String relativePath) {
         Path moduleRelative = Path.of("..", relativePath).toAbsolutePath().normalize();
         if (Files.exists(moduleRelative)) {
@@ -107,17 +115,126 @@ abstract class AbstractMapperIntegrationTest {
         Date oldTime = DateTool.addSeconds(new Date(), -120);
         Date newTime = new Date();
         String key = "test-registry-" + System.nanoTime();
+        String staleKey = key + "-stale";
 
+        assertTrue(xxlJobRegistryMapper.registrySaveOrUpdate("EXECUTOR", staleKey, "http://127.0.0.1:9998", oldTime) > 0);
         assertTrue(xxlJobRegistryMapper.registrySaveOrUpdate("EXECUTOR", key, "http://127.0.0.1:9999", oldTime) > 0);
         assertTrue(xxlJobRegistryMapper.registrySaveOrUpdate("EXECUTOR", key, "http://127.0.0.1:9999", newTime) > 0);
 
         Date deadline = DateTool.addSeconds(new Date(), -60);
-        assertFalse(xxlJobRegistryMapper.findAll(deadline).stream()
+        List<XxlJobRegistry> aliveRecords = xxlJobRegistryMapper.findAll(deadline).stream()
                 .filter(item -> key.equals(item.getRegistryKey()))
-                .toList()
-                .isEmpty());
-        assertTrue(xxlJobRegistryMapper.findDead(deadline).stream()
-                .noneMatch(id -> id == 0));
+                .toList();
+        assertEquals(1, aliveRecords.size());
+
+        Integer staleId = jdbcTemplate.queryForObject("select id from xxl_job_registry where registry_key = ?",
+                Integer.class, staleKey);
+        assertNotNull(staleId);
+        List<Integer> deadIds = xxlJobRegistryMapper.findDead(deadline);
+        assertTrue(deadIds.contains(staleId));
+        assertFalse(deadIds.contains(aliveRecords.get(0).getId()));
+    }
+
+    protected void assertCaseInsensitiveBusinessKeysAndSearch() {
+        assertRegistryKeysAreCaseInsensitive();
+        assertUserNamesAreCaseInsensitive();
+        assertSearchFiltersAreCaseInsensitive();
+    }
+
+    private void assertRegistryKeysAreCaseInsensitive() {
+        Date oldTime = DateTool.addSeconds(new Date(), -120);
+        Date newTime = new Date();
+        String key = "test-case-registry-" + System.nanoTime();
+        String registryValue = "HTTP://127.0.0.1:9997/CasePath";
+
+        assertTrue(xxlJobRegistryMapper.registrySaveOrUpdate("EXECUTOR", key, registryValue, oldTime) > 0);
+        assertTrue(xxlJobRegistryMapper.registrySaveOrUpdate("executor", key.toUpperCase(Locale.ROOT),
+                registryValue.toLowerCase(Locale.ROOT), newTime) > 0);
+
+        Integer count = jdbcTemplate.queryForObject(
+                "select count(*) from xxl_job_registry where lower(registry_key) = lower(?)",
+                Integer.class, key);
+        assertEquals(1, count);
+
+        Date deadline = DateTool.addSeconds(new Date(), -60);
+        assertEquals(1, xxlJobRegistryMapper.findAll(deadline).stream()
+                .filter(item -> key.equalsIgnoreCase(item.getRegistryKey()))
+                .count());
+    }
+
+    private void assertUserNamesAreCaseInsensitive() {
+        String username = "CaseUser" + System.nanoTime();
+        XxlJobUser user = new XxlJobUser();
+        user.setUsername(username);
+        user.setPassword("password");
+        user.setRole(0);
+        user.setPermission("");
+        assertEquals(1, xxlJobUserMapper.save(user));
+        assertTrue(user.getId() > 0);
+
+        assertNotNull(xxlJobUserMapper.loadByUserName(username.toLowerCase(Locale.ROOT)));
+        assertFalse(xxlJobUserMapper.pageList(0, 10, username.toLowerCase(Locale.ROOT), -1).isEmpty());
+        assertTrue(xxlJobUserMapper.pageListCount(0, 10, username.toLowerCase(Locale.ROOT), -1) > 0);
+
+        XxlJobUser duplicate = new XxlJobUser();
+        duplicate.setUsername(username.toUpperCase(Locale.ROOT));
+        duplicate.setPassword("password");
+        duplicate.setRole(0);
+        duplicate.setPermission("");
+        assertThrows(DataAccessException.class, () -> xxlJobUserMapper.save(duplicate));
+    }
+
+    private void assertSearchFiltersAreCaseInsensitive() {
+        XxlJobGroup group = new XxlJobGroup();
+        group.setAppname("CaseSearchApp" + System.nanoTime());
+        group.setTitle("CaseSearchTitle");
+        group.setAddressType(0);
+        group.setAddressList("http://127.0.0.1:9999");
+        group.setUpdateTime(new Date());
+        assertEquals(1, xxlJobGroupMapper.save(group));
+
+        assertFalse(xxlJobGroupMapper.pageList(0, 10,
+                group.getAppname().toLowerCase(Locale.ROOT), null).isEmpty());
+        assertTrue(xxlJobGroupMapper.pageListCount(0, 10,
+                group.getAppname().toLowerCase(Locale.ROOT), null) > 0);
+        assertFalse(xxlJobGroupMapper.pageList(0, 10,
+                null, group.getTitle().toLowerCase(Locale.ROOT)).isEmpty());
+        assertTrue(xxlJobGroupMapper.pageListCount(0, 10,
+                null, group.getTitle().toLowerCase(Locale.ROOT)) > 0);
+
+        XxlJobInfo info = new XxlJobInfo();
+        info.setJobGroup(group.getId());
+        info.setJobDesc("CaseSearchJob");
+        info.setAddTime(new Date());
+        info.setUpdateTime(new Date());
+        info.setAuthor("CaseSearchAuthor");
+        info.setAlarmEmail("");
+        info.setScheduleType("NONE");
+        info.setScheduleConf("");
+        info.setMisfireStrategy("DO_NOTHING");
+        info.setExecutorRouteStrategy("FIRST");
+        info.setExecutorHandler("CaseSearchHandler");
+        info.setExecutorParam("");
+        info.setExecutorBlockStrategy("SERIAL_EXECUTION");
+        info.setGlueType("BEAN");
+        info.setGlueSource("");
+        info.setGlueRemark("test");
+        info.setGlueUpdatetime(new Date());
+        info.setChildJobId("");
+        assertEquals(1, xxlJobInfoMapper.save(info));
+
+        assertFalse(xxlJobInfoMapper.pageList(0, 10, group.getId(), -1,
+                info.getJobDesc().toLowerCase(Locale.ROOT), null, null).isEmpty());
+        assertTrue(xxlJobInfoMapper.pageListCount(0, 10, group.getId(), -1,
+                info.getJobDesc().toLowerCase(Locale.ROOT), null, null) > 0);
+        assertFalse(xxlJobInfoMapper.pageList(0, 10, group.getId(), -1,
+                null, info.getExecutorHandler().toLowerCase(Locale.ROOT), null).isEmpty());
+        assertTrue(xxlJobInfoMapper.pageListCount(0, 10, group.getId(), -1,
+                null, info.getExecutorHandler().toLowerCase(Locale.ROOT), null) > 0);
+        assertFalse(xxlJobInfoMapper.pageList(0, 10, group.getId(), -1,
+                null, null, info.getAuthor().toLowerCase(Locale.ROOT)).isEmpty());
+        assertTrue(xxlJobInfoMapper.pageListCount(0, 10, group.getId(), -1,
+                null, null, info.getAuthor().toLowerCase(Locale.ROOT)) > 0);
     }
 
     protected void assertLogReportUpsert() {

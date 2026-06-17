@@ -72,17 +72,17 @@
 			<if test="jobGroup gt 0">
 				AND t.job_group = #{jobGroup}
 			</if>
-            <if test="triggerStatus gte 0">
-                AND t.trigger_status = #{triggerStatus}
-            </if>
+			<if test="triggerStatus gte 0">
+				AND t.trigger_status = #{triggerStatus}
+			</if>
 			<if test="jobDesc != null and jobDesc != ''">
-				AND t.job_desc like CONCAT(CONCAT('%', #{jobDesc}), '%')
+				AND lower(t.job_desc) like CONCAT(CONCAT('%', lower(#{jobDesc})), '%')
 			</if>
 			<if test="executorHandler != null and executorHandler != ''">
-				AND t.executor_handler like CONCAT(CONCAT('%', #{executorHandler}), '%')
+				AND lower(t.executor_handler) like CONCAT(CONCAT('%', lower(#{executorHandler})), '%')
 			</if>
 			<if test="author != null and author != ''">
-				AND t.author like CONCAT(CONCAT('%', #{author}), '%')
+				AND lower(t.author) like CONCAT(CONCAT('%', lower(#{author})), '%')
 			</if>
 		</trim>
 		ORDER BY id DESC
@@ -96,17 +96,17 @@
 			<if test="jobGroup gt 0">
 				AND t.job_group = #{jobGroup}
 			</if>
-            <if test="triggerStatus gte 0">
-                AND t.trigger_status = #{triggerStatus}
-            </if>
+			<if test="triggerStatus gte 0">
+				AND t.trigger_status = #{triggerStatus}
+			</if>
 			<if test="jobDesc != null and jobDesc != ''">
-				AND t.job_desc like CONCAT(CONCAT('%', #{jobDesc}), '%')
+				AND lower(t.job_desc) like CONCAT(CONCAT('%', lower(#{jobDesc})), '%')
 			</if>
 			<if test="executorHandler != null and executorHandler != ''">
-				AND t.executor_handler like CONCAT(CONCAT('%', #{executorHandler}), '%')
+				AND lower(t.executor_handler) like CONCAT(CONCAT('%', lower(#{executorHandler})), '%')
 			</if>
 			<if test="author != null and author != ''">
-				AND t.author like CONCAT(CONCAT('%', #{author}), '%')
+				AND lower(t.author) like CONCAT(CONCAT('%', lower(#{author})), '%')
 			</if>
 		</trim>
 	</select>

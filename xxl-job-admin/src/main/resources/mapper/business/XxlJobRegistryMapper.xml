@@ -49,21 +49,21 @@
 	<insert id="registrySaveOrUpdate" databaseId="postgresql" >
 		INSERT INTO xxl_job_registry(registry_group, registry_key, registry_value, update_time)
 		VALUES(#{registryGroup}, #{registryKey}, #{registryValue}, #{updateTime})
-		ON CONFLICT (registry_group, registry_key, registry_value) DO UPDATE SET
+		ON CONFLICT (lower(registry_group), lower(registry_key), lower(registry_value)) DO UPDATE SET
 			update_time = EXCLUDED.update_time
 	</insert>
 
 	<delete id="registryDelete" >
 		DELETE FROM xxl_job_registry
-		WHERE registry_group = #{registryGroup}
-			AND registry_key = #{registryKey}
-			AND registry_value = #{registryValue}
+		WHERE lower(registry_group) = lower(#{registryGroup})
+			AND lower(registry_key) = lower(#{registryKey})
+			AND lower(registry_value) = lower(#{registryValue})
 	</delete>
 
-    <delete id="removeByRegistryGroupAndKey" >
-        DELETE FROM xxl_job_registry
-        WHERE registry_group = #{registryGroup}
-          AND registry_key = #{registryKey}
-    </delete>
+	<delete id="removeByRegistryGroupAndKey" >
+		DELETE FROM xxl_job_registry
+		WHERE lower(registry_group) = lower(#{registryGroup})
+			AND lower(registry_key) = lower(#{registryKey})
+	</delete>
 
 </mapper>

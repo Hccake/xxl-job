@@ -16,8 +16,13 @@ CREATE TABLE IF NOT EXISTS xxl_job_registry
     registry_key   varchar(255) NOT NULL,
     registry_value varchar(255) NOT NULL,
     update_time    timestamp,
-    PRIMARY KEY (id),
-    CONSTRAINT i_g_k_v UNIQUE (registry_group, registry_key, registry_value)
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX i_g_k_v ON xxl_job_registry (
+    lower(registry_group),
+    lower(registry_key),
+    lower(registry_value)
 );
 
 CREATE TABLE IF NOT EXISTS xxl_job_info
@@ -112,9 +117,10 @@ CREATE TABLE IF NOT EXISTS xxl_job_user
     token      varchar(100),
     role       smallint     NOT NULL,
     permission varchar(255),
-    PRIMARY KEY (id),
-    CONSTRAINT i_username UNIQUE (username)
+    PRIMARY KEY (id)
 );
+
+CREATE UNIQUE INDEX i_username ON xxl_job_user (lower(username));
 
 INSERT INTO xxl_job_group(id, app_name, title, address_type, address_list, update_time)
 VALUES (1, 'xxl-job-executor-sample', '通用执行器Sample', 0, NULL, now()),

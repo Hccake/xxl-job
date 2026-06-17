@@ -26,7 +26,7 @@
 		FROM xxl_job_user AS t
 		<trim prefix="WHERE" prefixOverrides="AND | OR" >
 			<if test="username != null and username != ''">
-				AND t.username like CONCAT(CONCAT('%', #{username}), '%')
+				AND lower(t.username) like CONCAT(CONCAT('%', lower(#{username})), '%')
 			</if>
 			<if test="role gt -1">
 				AND t.role = #{role}
@@ -41,7 +41,7 @@
 		FROM xxl_job_user AS t
 		<trim prefix="WHERE" prefixOverrides="AND | OR" >
 			<if test="username != null and username != ''">
-				AND t.username like CONCAT(CONCAT('%', #{username}), '%')
+				AND lower(t.username) like CONCAT(CONCAT('%', lower(#{username})), '%')
 			</if>
 			<if test="role gt -1">
 				AND t.role = #{role}
@@ -52,7 +52,7 @@
 	<select id="loadByUserName" parameterType="java.util.HashMap" resultMap="XxlJobUser">
 		SELECT <include refid="Base_Column_List" />
 		FROM xxl_job_user AS t
-		WHERE t.username = #{username}
+		WHERE lower(t.username) = lower(#{username})
 	</select>
 
 	<select id="loadById" parameterType="java.util.HashMap" resultMap="XxlJobUser">

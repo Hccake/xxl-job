@@ -31,6 +31,18 @@
     </p>
 </p>
 
+## Fork Notice
+
+This fork tracks XXL-JOB 3.4.1 and publishes fork releases such as `3.4.1-1`.
+It keeps MySQL compatibility while adding PostgreSQL support and a PostgreSQL
+Docker Compose verification setup. See [FORK.md](FORK.md) for the fork scope,
+version policy, and differences from upstream.
+
+本仓库是基于 XXL-JOB 3.4.1 的 fork，发布版本使用 `3.4.1-1`
+这类 fork 修订版本号。当前版本在保留 MySQL 兼容性的基础上增加 PostgreSQL
+支持，并提供 PostgreSQL Docker Compose 验证环境。fork 范围、版本策略以及
+与上游的差异见 [FORK.md](FORK.md)。
+
 
 ## Introduction
 XXL-JOB is a distributed task scheduling framework. 

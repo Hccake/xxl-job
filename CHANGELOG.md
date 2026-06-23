@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.4.1-2
+
+Fork release based on upstream XXL-JOB `3.4.1`.
+
+### Changed
+
+- Publish Docker images as multi-platform images for `linux/amd64` and
+  `linux/arm64`.
+- Fork release version `3.4.1-2`.
+
+### Notes
+
+- `3.4.1-1` remains the first fork release and was published as an amd64 Docker
+  image.
+- Use `3.4.1-2` or newer when running on ARM64 hosts.
+
 ## 3.4.1-1
 
 Fork release based on upstream XXL-JOB `3.4.1`.
